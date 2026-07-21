@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<title>Storsjöfärjan – hinner du?</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0d6efd">
+<style>
+  :root{
+    --bg:#f4f6f9; --card:#ffffff; --text:#111827; --muted:#6b7280;
+    --border:#e5e7eb; --accent:#0d6efd; --good:#16a34a; --warn:#d97706; --bad:#dc2626;
+    --winbg:#ecfdf3; --winborder:#16a34a;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0b0f14; --card:#161c24; --text:#e8ecf1; --muted:#9aa5b1;
+      --border:#232b36; --accent:#4c9aff; --good:#22c55e; --warn:#f59e0b; --bad:#f87171;
+      --winbg:#0e2418; --winborder:#22c55e;
+    }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:16px 16px 40px; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    max-width:520px; margin-inline:auto;
+  }
+  h1{font-size:1.3rem; margin:0 0 4px}
+  .sub{color:var(--muted); font-size:.85rem; margin-bottom:16px}
+  .clock{font-variant-numeric:tabular-nums; font-weight:600}
+  button{
+    font:inherit; font-weight:600; border:none; border-radius:12px;
+    padding:14px 18px; cursor:pointer;
+  }
+  .btn-primary{background:var(--accent); color:#fff; width:100%; font-size:1.05rem}
+  .btn-primary:active{opacity:.85}
+  .btn-secondary{
+    background:transparent; color:var(--accent); border:1px solid var(--accent);
+    width:100%; margin-top:8px; font-size:.95rem;
+  }
+  .status{
+    margin:14px 0; padding:12px 14px; border-radius:10px; font-size:.9rem;
+    background:var(--card); border:1px solid var(--border); color:var(--muted);
+  }
+  .status.error{color:var(--bad); border-color:var(--bad)}
+  .card{
+    background:var(--card); border:1px solid var(--border); border-radius:14px;
+    padding:14px 16px; margin-top:14px;
+  }
+  .card h3{margin:0 0 8px; font-size:1rem; display:flex; align-items:center; gap:8px}
+  .card.winner{border-color:var(--winborder); background:var(--winbg)}
+  .row{display:flex; justify-content:space-between; font-size:.88rem; padding:3px 0; color:var(--muted)}
+  .row b{color:var(--text); font-weight:600}
+  .badge{
+    font-size:.7rem; font-weight:700; padding:2px 8px; border-radius:999px;
+    background:var(--good); color:#fff;
+  }
+  .recommend{
+    margin-top:16px; padding:16px; border-radius:14px; background:var(--winbg);
+    border:2px solid var(--winborder); text-align:center;
+  }
+  .recommend .big{font-size:1.6rem; font-weight:800; margin:4px 0}
+  .recommend .small{color:var(--muted); font-size:.85rem}
+  .note{font-size:.78rem; color:var(--muted); margin-top:14px; line-height:1.4}
+  a{color:var(--accent)}
+  .links{display:flex; gap:10px; flex-wrap:wrap; margin-top:6px; font-size:.8rem}
+  .fallback-tag{color:var(--warn); font-weight:700}
+  .live-toggle{display:flex; align-items:center; gap:8px; margin-top:10px; font-size:.85rem; color:var(--muted)}
+  .live-dot{width:9px; height:9px; border-radius:50%; background:var(--border)}
+  .live-dot.on{background:var(--good); box-shadow:0 0 0 4px rgba(34,197,94,.2)}
+  hr{border:none; border-top:1px solid var(--border); margin:16px 0}
+</style>
+</head>
+<body>
+
+<h1>🚗⛴️ Storsjöfärjan – hinner du?</h1>
+<div class="sub">Jämför Håkanstaleden (väster) och Isöleden (öster) från din nuvarande position. <span class="clock" id="clock">--:--:--</span></div>
+
+<button type="button" class="btn-primary" id="locateBtn">📍 Hämta min position</button>
+<button type="button" class="btn-secondary" id="liveBtn">▶️ Starta live-spårning</button>
+<div class="live-toggle"><span class="live-dot" id="liveDot"></span><span id="liveText">Live-spårning av</span></div>
+
+<div class="status" id="status">Tryck på knappen för att hämta din position.</div>
+
+<div id="results"></div>
+
+<div class="note" id="disclaimer" style="display:none">
+  Tidtabellen är en förenklad modell: avgångar var 30:e minut inom ordinarie trafiktid.
+  Tidig morgon, sen kväll, helger och driftstörningar kan innebära <b>kallelsetur</b> –
+  ring Färjerederiet <b>0771-65 65 65</b> 15–30 min innan önskad avgång, eller kolla realtid via länkarna nedan.
+  <div class="links">
+    <a href="https://www.trafikverket.se/hakanstaleden" target="_blank" rel="noopener">Håkanstaleden info</a>
+    <a href="https://turlistan.se/hakanstaleden/farjelage/hakansta" target="_blank" rel="noopener">Håkansta live</a>
+    <a href="https://www.trafikverket.se/isoleden" target="_blank" rel="noopener">Isöleden info</a>
+    <a href="https://turlistan.se/isoleden/farjelage/ison" target="_blank" rel="noopener">Isön live</a>
+  </div>
+</div>
+
+<script>
+window.addEventListener("error", function(e){
+  var box = document.getElementById("status");
+  if(box){
+    box.textContent = "JS-fel: " + (e.message || e) + (e.filename ? " (" + e.filename + ":" + e.lineno + ")" : "");
+    box.className = "status error";
+  }
+});
+
+(function(){
+  "use strict";
+  try{
+
+  var ROUTES = {
+    hakansta: {
+      key: "hakansta",
+      name: "Håkansta",
+      side: "Väster",
+      routeName: "Håkanstaleden",
+      lat: 63.136474, lon: 14.322645,
+      open: {h:5,m:30}, close:{h:23,m:0}
+    },
+    isoleden: {
+      key: "isoleden",
+      name: "Isön",
+      side: "Öster",
+      routeName: "Isöleden",
+      lat: 63.137666, lon: 14.393692,
+      open: {h:5,m:30}, close:{h:23,m:30}
+    }
+  };
+  var SIDE_DIVIDER_LON = (ROUTES.hakansta.lon + ROUTES.isoleden.lon) / 2;
+  var BOARD_BUFFER_MIN = 3; // marginal för att köra ombord innan avgång
+  var HALF_HOUR_MS = 30*60*1000;
+
+  var els = {
+    status: document.getElementById("status"),
+    results: document.getElementById("results"),
+    locateBtn: document.getElementById("locateBtn"),
+    liveBtn: document.getElementById("liveBtn"),
+    liveDot: document.getElementById("liveDot"),
+    liveText: document.getElementById("liveText"),
+    clock: document.getElementById("clock"),
+    disclaimer: document.getElementById("disclaimer")
+  };
+
+  var watchId = null;
+  var lastFix = null; // {lat, lon, t}
+  var lastComputeAt = 0;
+
+  // Diagnos: bevisar att JS faktiskt körs och visar varför geolocation ev. inte fungerar.
+  (function diagnose(){
+    var secure = window.isSecureContext;
+    var hasGeo = !!navigator.geolocation;
+    var hasFetch = !!window.fetch;
+    var proto = location.protocol;
+    var parts = [];
+    if(proto === "file:") parts.push("Öppnad som lokal fil.");
+    parts.push("Säker kontext: " + (secure ? "ja" : "NEJ"));
+    parts.push("Geolocation stöds: " + (hasGeo ? "ja" : "NEJ"));
+    parts.push("Nätverk (fetch) stöds: " + (hasFetch ? "ja" : "NEJ"));
+    var msg = "Redo. " + parts.join(" · ") + ". Tryck på knappen.";
+    setStatus(msg, !secure || !hasGeo);
+  })();
+
+  function fmtTime(d){
+    return d.getHours().toString().padStart(2,"0") + ":" + d.getMinutes().toString().padStart(2,"0");
+  }
+  function fmtClock(d){
+    return d.getHours().toString().padStart(2,"0") + ":" + d.getMinutes().toString().padStart(2,"0") + ":" + d.getSeconds().toString().padStart(2,"0");
+  }
+  function tickClock(){
+    els.clock.textContent = fmtClock(new Date());
+  }
+  setInterval(tickClock, 1000);
+  tickClock();
+
+  function toRad(v){ return v * Math.PI / 180; }
+  function haversineKm(lat1,lon1,lat2,lon2){
+    var R = 6371;
+    var dLat = toRad(lat2-lat1);
+    var dLon = toRad(lon2-lon1);
+    var a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+            Math.cos(toRad(lat1))*Math.cos(toRad(lat2)) *
+            Math.sin(dLon/2)*Math.sin(dLon/2);
+    var c = 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R*c;
+  }
+
+  function fallbackEstimate(lat, lon, route){
+    var km = haversineKm(lat, lon, route.lat, route.lon);
+    var straightLineFactor = 1.3; // riktiga vägar slingrar mer än fågelvägen
+    var avgSpeedKmh = 50;
+    var minutes = (km*straightLineFactor / avgSpeedKmh) * 60;
+    return { minutes: minutes, distanceKm: km*straightLineFactor, source: "fallback" };
+  }
+
+  function osrmDuration(lat, lon, route){
+    var url = "https://router.project-osrm.org/route/v1/driving/" +
+      lon + "," + lat + ";" + route.lon + "," + route.lat + "?overview=false";
+    var ctrl = new AbortController();
+    var timeout = setTimeout(function(){ ctrl.abort(); }, 8000);
+    return fetch(url, { signal: ctrl.signal }).then(function(res){
+      clearTimeout(timeout);
+      if(!res.ok) throw new Error("OSRM HTTP " + res.status);
+      return res.json();
+    }).then(function(data){
+      if(!data.routes || !data.routes.length) throw new Error("Ingen rutt hittades");
+      var r = data.routes[0];
+      return { minutes: r.duration/60, distanceKm: r.distance/1000, source: "osrm" };
+    });
+  }
+
+  function getTravelEstimate(lat, lon, route){
+    return osrmDuration(lat, lon, route).catch(function(){
+      return fallbackEstimate(lat, lon, route);
+    });
+  }
+
+  function clampToWindow(route, rounded){
+    var openMin = route.open.h*60 + route.open.m;
+    var closeMin = route.close.h*60 + route.close.m;
+    var minutesOfDay = rounded.getHours()*60 + rounded.getMinutes();
+
+    var outsideWindow = false;
+    if(minutesOfDay > closeMin){
+      outsideWindow = true;
+      rounded.setDate(rounded.getDate()+1);
+      rounded.setHours(route.open.h, route.open.m, 0, 0);
+    } else if(minutesOfDay < openMin){
+      outsideWindow = true;
+      rounded.setHours(route.open.h, route.open.m, 0, 0);
+    }
+    return outsideWindow;
+  }
+
+  // Räknar fram den tidigaste avgången du faktiskt hinner med (utan att i
+  // tysthet hoppa över en avgång), och flaggar när marginalen är knapp.
+  function nextDeparture(route, arrivalDate){
+    var earliest = new Date(Math.ceil(arrivalDate.getTime()/HALF_HOUR_MS) * HALF_HOUR_MS);
+    var outsideWindow = clampToWindow(route, earliest);
+    var marginMin = Math.round((earliest.getTime() - arrivalDate.getTime())/60000);
+    var tight = marginMin < BOARD_BUFFER_MIN;
+
+    var safe = null;
+    if(tight){
+      safe = new Date(earliest.getTime() + HALF_HOUR_MS);
+      clampToWindow(route, safe);
+    }
+
+    return { time: earliest, outsideWindow: outsideWindow, marginMin: marginMin, tight: tight, safeTime: safe };
+  }
+
+  function minutesUntil(date){
+    return Math.round((date.getTime() - Date.now())/60000);
+  }
+
+  function setStatus(msg, isError){
+    els.status.textContent = msg;
+    els.status.className = "status" + (isError ? " error" : "");
+  }
+
+  function render(lat, lon, accuracy, estimates){
+    var side = lon < SIDE_DIVIDER_LON ? "Väster" : "Öster";
+    var recommendedKey = estimates.hakansta.minutes <= estimates.isoleden.minutes ? "hakansta" : "isoleden";
+
+    var html = "";
+    html += "<div class='card'><h3>📍 Din position</h3>" +
+      "<div class='row'><span>Koordinater</span><b>" + lat.toFixed(5) + ", " + lon.toFixed(5) + "</b></div>" +
+      "<div class='row'><span>Noggrannhet</span><b>±" + Math.round(accuracy) + " m</b></div>" +
+      "<div class='row'><span>Sida av Storsjön</span><b>" + side + "</b></div>" +
+      "</div>";
+
+    ["hakansta","isoleden"].forEach(function(key){
+      var route = ROUTES[key];
+      var est = estimates[key];
+      var now = new Date();
+      var arrival = new Date(now.getTime() + est.minutes*60000);
+      var dep = nextDeparture(route, arrival);
+      var isWinner = key === recommendedKey;
+
+      html += "<div class='card" + (isWinner ? " winner" : "") + "'>";
+      html += "<h3>" + (route.key==="hakansta" ? "⬅️" : "➡️") + " " + route.name + " – " + route.side +
+              (isWinner ? " <span class='badge'>Snabbast</span>" : "") + "</h3>";
+      html += "<div class='row'><span>Körsträcka</span><b>" + est.distanceKm.toFixed(1) + " km" +
+              (est.source==="fallback" ? " <span class='fallback-tag'>(uppskattning)</span>" : "") + "</b></div>";
+      html += "<div class='row'><span>Körtid</span><b>ca " + Math.round(est.minutes) + " min</b></div>";
+      html += "<div class='row'><span>Beräknad ankomst</span><b>" + fmtTime(arrival) + "</b></div>";
+      html += "<div class='row'><span>Nästa avgång du hinner</span><b>" + fmtTime(dep.time) +
+              (dep.outsideWindow ? " (kallelsetur)" : "") + "</b></div>";
+      html += "<div class='row'><span>Om</span><b>" + minutesUntil(dep.time) + " min</b></div>";
+      html += "<div class='row'><span>Marginal vid ankomst</span><b" +
+              (dep.tight ? " class='fallback-tag'" : "") + ">" + dep.marginMin + " min" +
+              (dep.tight ? " – knappt!" : "") + "</b></div>";
+      if(dep.tight && dep.safeTime){
+        html += "<div class='row'><span>Säkrare alternativ</span><b>" + fmtTime(dep.safeTime) + "</b></div>";
+      }
+      html += "</div>";
+
+      if(isWinner){
+        html += "<div class='recommend'>" +
+          "<div class='small'>Åk mot</div>" +
+          "<div class='big'>" + route.name + " (" + route.routeName + ")</div>" +
+          "<div class='small'>Nästa färja du hinner med: <b>" + fmtTime(dep.time) + "</b> — om " + minutesUntil(dep.time) + " min" +
+          (dep.tight ? " <span class='fallback-tag'>(endast " + dep.marginMin + " min marginal)</span>" : "") +
+          (dep.tight && dep.safeTime ? "<br>Vill du vara säker: <b>" + fmtTime(dep.safeTime) + "</b> istället" : "") +
+          (dep.outsideWindow ? "<br><span class='fallback-tag'>Utanför ordinarie tid – ring 0771-65 65 65 för kallelsetur</span>" : "") +
+          "</div></div>";
+      }
+    });
+
+    els.results.innerHTML = html;
+    els.disclaimer.style.display = "block";
+  }
+
+  function handlePosition(pos, isLive){
+    var lat = pos.coords.latitude;
+    var lon = pos.coords.longitude;
+    var accuracy = pos.coords.accuracy || 0;
+    lastFix = { lat: lat, lon: lon, t: Date.now() };
+
+    if(isLive){
+      var moved = 9999, dt = 9999;
+      // throttle: only recompute if enough time passed (avoid hammering routing API)
+      dt = Date.now() - lastComputeAt;
+      if(dt < 20000) return;
+    }
+    lastComputeAt = Date.now();
+
+    setStatus("Beräknar körtid till båda färjelägena…");
+    Promise.all([
+      getTravelEstimate(lat, lon, ROUTES.hakansta),
+      getTravelEstimate(lat, lon, ROUTES.isoleden)
+    ]).then(function(results){
+      var estimates = { hakansta: results[0], isoleden: results[1] };
+      var anyFallback = estimates.hakansta.source === "fallback" || estimates.isoleden.source === "fallback";
+      setStatus(anyFallback ?
+        "Klart. (Kunde inte nå ruttjänsten – visar avståndsuppskattning istället för verklig körtid.)" :
+        "Klart. Uppdaterad " + fmtClock(new Date()) + ".");
+      render(lat, lon, accuracy, estimates);
+    }).catch(function(err){
+      setStatus("Kunde inte beräkna körtid: " + err.message, true);
+    });
+  }
+
+  function handleError(err){
+    var msg = "Kunde inte hämta position: " + err.message;
+    if(err.code === 1) msg = "Platsåtkomst nekad. Tillåt plats för sidan i telefonens inställningar.";
+    if(err.code === 3) msg = "Det tog för lång tid att hämta position. Försök igen (gärna utomhus).";
+    setStatus(msg, true);
+  }
+
+  els.locateBtn.addEventListener("click", function(){
+    if(!navigator.geolocation){
+      setStatus("Den här telefonen/webbläsaren stödjer inte platstjänster.", true);
+      return;
+    }
+    setStatus("Hämtar position…");
+    navigator.geolocation.getCurrentPosition(function(pos){
+      handlePosition(pos, false);
+    }, handleError, { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 });
+  });
+
+  els.liveBtn.addEventListener("click", function(){
+    if(watchId !== null){
+      navigator.geolocation.clearWatch(watchId);
+      watchId = null;
+      els.liveDot.className = "live-dot";
+      els.liveText.textContent = "Live-spårning av";
+      els.liveBtn.textContent = "▶️ Starta live-spårning";
+      return;
+    }
+    if(!navigator.geolocation){
+      setStatus("Den här telefonen/webbläsaren stödjer inte platstjänster.", true);
+      return;
+    }
+    els.liveDot.className = "live-dot on";
+    els.liveText.textContent = "Live-spårning på (uppdaterar under körning)";
+    els.liveBtn.textContent = "⏸️ Stoppa live-spårning";
+    watchId = navigator.geolocation.watchPosition(function(pos){
+      handlePosition(pos, true);
+    }, handleError, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+  });
+
+  } catch(e){
+    var box = document.getElementById("status");
+    if(box){
+      box.textContent = "Fel vid start av appen: " + e.message;
+      box.className = "status error";
+    }
+  }
+})();
+</script>
+</body>
+</html>
