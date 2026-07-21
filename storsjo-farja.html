@@ -218,10 +218,7 @@ window.addEventListener("error", function(e){
     });
   }
 
-  function nextDeparture(route, arrivalDate){
-    var target = new Date(arrivalDate.getTime() + BOARD_BUFFER_MIN*60000);
-    var rounded = new Date(Math.ceil(target.getTime()/HALF_HOUR_MS) * HALF_HOUR_MS);
-
+  function clampToWindow(route, rounded){
     var openMin = route.open.h*60 + route.open.m;
     var closeMin = route.close.h*60 + route.close.m;
     var minutesOfDay = rounded.getHours()*60 + rounded.getMinutes();
@@ -235,7 +232,24 @@ window.addEventListener("error", function(e){
       outsideWindow = true;
       rounded.setHours(route.open.h, route.open.m, 0, 0);
     }
-    return { time: rounded, outsideWindow: outsideWindow };
+    return outsideWindow;
+  }
+
+  // Räknar fram den tidigaste avgången du faktiskt hinner med (utan att i
+  // tysthet hoppa över en avgång), och flaggar när marginalen är knapp.
+  function nextDeparture(route, arrivalDate){
+    var earliest = new Date(Math.ceil(arrivalDate.getTime()/HALF_HOUR_MS) * HALF_HOUR_MS);
+    var outsideWindow = clampToWindow(route, earliest);
+    var marginMin = Math.round((earliest.getTime() - arrivalDate.getTime())/60000);
+    var tight = marginMin < BOARD_BUFFER_MIN;
+
+    var safe = null;
+    if(tight){
+      safe = new Date(earliest.getTime() + HALF_HOUR_MS);
+      clampToWindow(route, safe);
+    }
+
+    return { time: earliest, outsideWindow: outsideWindow, marginMin: marginMin, tight: tight, safeTime: safe };
   }
 
   function minutesUntil(date){
@@ -277,6 +291,12 @@ window.addEventListener("error", function(e){
       html += "<div class='row'><span>Nästa avgång du hinner</span><b>" + fmtTime(dep.time) +
               (dep.outsideWindow ? " (kallelsetur)" : "") + "</b></div>";
       html += "<div class='row'><span>Om</span><b>" + minutesUntil(dep.time) + " min</b></div>";
+      html += "<div class='row'><span>Marginal vid ankomst</span><b" +
+              (dep.tight ? " class='fallback-tag'" : "") + ">" + dep.marginMin + " min" +
+              (dep.tight ? " – knappt!" : "") + "</b></div>";
+      if(dep.tight && dep.safeTime){
+        html += "<div class='row'><span>Säkrare alternativ</span><b>" + fmtTime(dep.safeTime) + "</b></div>";
+      }
       html += "</div>";
 
       if(isWinner){
@@ -284,6 +304,8 @@ window.addEventListener("error", function(e){
           "<div class='small'>Åk mot</div>" +
           "<div class='big'>" + route.name + " (" + route.routeName + ")</div>" +
           "<div class='small'>Nästa färja du hinner med: <b>" + fmtTime(dep.time) + "</b> — om " + minutesUntil(dep.time) + " min" +
+          (dep.tight ? " <span class='fallback-tag'>(endast " + dep.marginMin + " min marginal)</span>" : "") +
+          (dep.tight && dep.safeTime ? "<br>Vill du vara säker: <b>" + fmtTime(dep.safeTime) + "</b> istället" : "") +
           (dep.outsideWindow ? "<br><span class='fallback-tag'>Utanför ordinarie tid – ring 0771-65 65 65 för kallelsetur</span>" : "") +
           "</div></div>";
       }
