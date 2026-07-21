@@ -77,8 +77,8 @@
 <h1>🚗⛴️ Storsjöfärjan – hinner du?</h1>
 <div class="sub">Jämför Håkanstaleden (väster) och Isöleden (öster) från din nuvarande position. <span class="clock" id="clock">--:--:--</span></div>
 
-<button class="btn-primary" id="locateBtn">📍 Hämta min position</button>
-<button class="btn-secondary" id="liveBtn">▶️ Starta live-spårning</button>
+<button type="button" class="btn-primary" id="locateBtn">📍 Hämta min position</button>
+<button type="button" class="btn-secondary" id="liveBtn">▶️ Starta live-spårning</button>
 <div class="live-toggle"><span class="live-dot" id="liveDot"></span><span id="liveText">Live-spårning av</span></div>
 
 <div class="status" id="status">Tryck på knappen för att hämta din position.</div>
@@ -98,8 +98,17 @@
 </div>
 
 <script>
+window.addEventListener("error", function(e){
+  var box = document.getElementById("status");
+  if(box){
+    box.textContent = "JS-fel: " + (e.message || e) + (e.filename ? " (" + e.filename + ":" + e.lineno + ")" : "");
+    box.className = "status error";
+  }
+});
+
 (function(){
   "use strict";
+  try{
 
   var ROUTES = {
     hakansta: {
@@ -139,6 +148,21 @@
   var watchId = null;
   var lastFix = null; // {lat, lon, t}
   var lastComputeAt = 0;
+
+  // Diagnos: bevisar att JS faktiskt körs och visar varför geolocation ev. inte fungerar.
+  (function diagnose(){
+    var secure = window.isSecureContext;
+    var hasGeo = !!navigator.geolocation;
+    var hasFetch = !!window.fetch;
+    var proto = location.protocol;
+    var parts = [];
+    if(proto === "file:") parts.push("Öppnad som lokal fil.");
+    parts.push("Säker kontext: " + (secure ? "ja" : "NEJ"));
+    parts.push("Geolocation stöds: " + (hasGeo ? "ja" : "NEJ"));
+    parts.push("Nätverk (fetch) stöds: " + (hasFetch ? "ja" : "NEJ"));
+    var msg = "Redo. " + parts.join(" · ") + ". Tryck på knappen.";
+    setStatus(msg, !secure || !hasGeo);
+  })();
 
   function fmtTime(d){
     return d.getHours().toString().padStart(2,"0") + ":" + d.getMinutes().toString().padStart(2,"0");
@@ -338,6 +362,13 @@
     }, handleError, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
   });
 
+  } catch(e){
+    var box = document.getElementById("status");
+    if(box){
+      box.textContent = "Fel vid start av appen: " + e.message;
+      box.className = "status error";
+    }
+  }
 })();
 </script>
 </body>
