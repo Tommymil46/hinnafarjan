@@ -263,24 +263,22 @@ window.addEventListener("error", function(e){
     var side = lon < SIDE_DIVIDER_LON ? "Väster" : "Öster";
     var recommendedKey = estimates.hakansta.minutes <= estimates.isoleden.minutes ? "hakansta" : "isoleden";
 
-    var html = "";
-    html += "<div class='card'><h3>📍 Din position</h3>" +
-      "<div class='row'><span>Koordinater</span><b>" + lat.toFixed(5) + ", " + lon.toFixed(5) + "</b></div>" +
-      "<div class='row'><span>Noggrannhet</span><b>±" + Math.round(accuracy) + " m</b></div>" +
-      "<div class='row'><span>Sida av Storsjön</span><b>" + side + "</b></div>" +
-      "</div>";
-
+    var now = new Date();
+    var info = {};
     ["hakansta","isoleden"].forEach(function(key){
       var route = ROUTES[key];
       var est = estimates[key];
-      var now = new Date();
       var arrival = new Date(now.getTime() + est.minutes*60000);
       var dep = nextDeparture(route, arrival);
-      var isWinner = key === recommendedKey;
+      info[key] = { route: route, est: est, arrival: arrival, dep: dep };
+    });
 
-      html += "<div class='card" + (isWinner ? " winner" : "") + "'>";
+    function routeCard(key, isWinner){
+      var d = info[key];
+      var route = d.route, est = d.est, arrival = d.arrival, dep = d.dep;
+      var html = "<div class='card" + (isWinner ? " winner" : "") + "'>";
       html += "<h3>" + (route.key==="hakansta" ? "⬅️" : "➡️") + " " + route.name + " – " + route.side +
-              (isWinner ? " <span class='badge'>Snabbast</span>" : "") + "</h3>";
+              (isWinner ? " <span class='badge'>Snabbast</span>" : " <span class='badge' style='background:var(--muted)'>Långsammast</span>") + "</h3>";
       html += "<div class='row'><span>Körsträcka</span><b>" + est.distanceKm.toFixed(1) + " km" +
               (est.source==="fallback" ? " <span class='fallback-tag'>(uppskattning)</span>" : "") + "</b></div>";
       html += "<div class='row'><span>Körtid</span><b>ca " + Math.round(est.minutes) + " min</b></div>";
@@ -295,18 +293,33 @@ window.addEventListener("error", function(e){
         html += "<div class='row'><span>Säkrare alternativ</span><b>" + fmtTime(dep.safeTime) + "</b></div>";
       }
       html += "</div>";
+      return html;
+    }
 
-      if(isWinner){
-        html += "<div class='recommend'>" +
-          "<div class='small'>Åk mot</div>" +
-          "<div class='big'>" + route.name + " (" + route.routeName + ")</div>" +
-          "<div class='small'>Nästa färja du hinner med: <b>" + fmtTime(dep.time) + "</b> — om " + minutesUntil(dep.time) + " min" +
-          (dep.tight ? " <span class='fallback-tag'>(endast " + dep.marginMin + " min marginal)</span>" : "") +
-          (dep.tight && dep.safeTime ? "<br>Vill du vara säker: <b>" + fmtTime(dep.safeTime) + "</b> istället" : "") +
-          (dep.outsideWindow ? "<br><span class='fallback-tag'>Utanför ordinarie tid – ring 0771-65 65 65 för kallelsetur</span>" : "") +
-          "</div></div>";
-      }
-    });
+    function recommendBanner(key){
+      var d = info[key];
+      var route = d.route, dep = d.dep;
+      return "<div class='recommend'>" +
+        "<div class='small'>Åk mot</div>" +
+        "<div class='big'>" + route.name + " (" + route.routeName + ")</div>" +
+        "<div class='small'>Nästa färja du hinner med: <b>" + fmtTime(dep.time) + "</b> — om " + minutesUntil(dep.time) + " min" +
+        (dep.tight ? " <span class='fallback-tag'>(endast " + dep.marginMin + " min marginal)</span>" : "") +
+        (dep.tight && dep.safeTime ? "<br>Vill du vara säker: <b>" + fmtTime(dep.safeTime) + "</b> istället" : "") +
+        (dep.outsideWindow ? "<br><span class='fallback-tag'>Utanför ordinarie tid – ring 0771-65 65 65 för kallelsetur</span>" : "") +
+        "</div></div>";
+    }
+
+    var loserKey = recommendedKey === "hakansta" ? "isoleden" : "hakansta";
+
+    var html = "";
+    html += "<div class='card'><h3>📍 Din position</h3>" +
+      "<div class='row'><span>Koordinater</span><b>" + lat.toFixed(5) + ", " + lon.toFixed(5) + "</b></div>" +
+      "<div class='row'><span>Noggrannhet</span><b>±" + Math.round(accuracy) + " m</b></div>" +
+      "<div class='row'><span>Sida av Storsjön</span><b>" + side + "</b></div>" +
+      "</div>";
+    html += recommendBanner(recommendedKey);
+    html += routeCard(recommendedKey, true);
+    html += routeCard(loserKey, false);
 
     els.results.innerHTML = html;
     els.disclaimer.style.display = "block";
