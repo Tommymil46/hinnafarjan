@@ -117,7 +117,6 @@ window.addEventListener("error", function(e){
       side: "Väster",
       routeName: "Håkanstaleden",
       lat: 63.136474, lon: 14.322645,
-      crossingMin: 13,
       open: {h:5,m:30}, close:{h:23,m:0}
     },
     isoleden: {
@@ -126,7 +125,6 @@ window.addEventListener("error", function(e){
       side: "Öster",
       routeName: "Isöleden",
       lat: 63.137666, lon: 14.393692,
-      crossingMin: 11,
       open: {h:5,m:30}, close:{h:23,m:30}
     }
   };
@@ -287,7 +285,6 @@ window.addEventListener("error", function(e){
               (est.source==="fallback" ? " <span class='fallback-tag'>(uppskattning)</span>" : "") + "</b></div>";
       html += "<div class='row'><span>Körtid</span><b>ca " + Math.round(est.minutes) + " min</b></div>";
       html += "<div class='row'><span>Beräknad ankomst</span><b>" + fmtTime(arrival) + "</b></div>";
-      html += "<div class='row'><span>Överfartstid</span><b>" + route.crossingMin + " min</b></div>";
       html += "<div class='row'><span>Nästa avgång du hinner</span><b>" + fmtTime(dep.time) +
               (dep.outsideWindow ? " (kallelsetur)" : "") + "</b></div>";
       html += "<div class='row'><span>Om</span><b>" + minutesUntil(dep.time) + " min</b></div>";
